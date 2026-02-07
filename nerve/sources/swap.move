@@ -86,8 +86,16 @@ module nerve::swap {
         assert!(msui_amount > 0, E_ZERO_AMOUNT);
         assert!(musdc_amount > 0, E_ZERO_AMOUNT);
 
-        // Calculate initial LP supply using geometric mean
-        let lp_supply = sqrt(msui_amount * musdc_amount);
+        // Calculate initial LP supply using geometric mean, avoiding overflow
+        // Use u256 for intermediate calculation if msui_amount and musdc_amount are large
+        let lp_supply = if (msui_amount >= 1_000_000_000_000 || musdc_amount >= 1_000_000_000_000) {
+            // For large amounts, scale down the calculation
+            let scaled_msui = msui_amount / 1_000_000_000;
+            let scaled_musdc = musdc_amount / 1_000_000_000;
+            sqrt(scaled_msui * scaled_musdc) * 31622  // ~sqrt(1e9)
+        } else {
+            sqrt(msui_amount * musdc_amount)
+        };
         assert!(lp_supply > MINIMUM_LIQUIDITY, E_INSUFFICIENT_LIQUIDITY);
 
         // Create the pool
@@ -429,11 +437,12 @@ module nerve::swap {
         assert!(amount_in > 0, E_ZERO_AMOUNT);
         assert!(reserve_in > 0 && reserve_out > 0, E_POOL_EMPTY);
 
-        let amount_in_with_fee = amount_in * FEE_MULTIPLIER;
-        let numerator = amount_in_with_fee * reserve_out;
-        let denominator = (reserve_in * FEE_DIVISOR) + amount_in_with_fee;
+        // Use u128 to prevent overflow in intermediate calculations
+        let amount_in_with_fee = (amount_in as u128) * (FEE_MULTIPLIER as u128);
+        let numerator = amount_in_with_fee * (reserve_out as u128);
+        let denominator = ((reserve_in as u128) * (FEE_DIVISOR as u128)) + amount_in_with_fee;
 
-        numerator / denominator
+        ((numerator / denominator) as u64)
     }
 
     /// Integer square root using Newton's method

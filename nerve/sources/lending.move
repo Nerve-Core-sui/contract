@@ -127,6 +127,19 @@ module nerve::lending {
         });
     }
 
+    /// Seed the lending pool with MUSDC liquidity
+    /// Anyone can add MUSDC to the pool to enable borrowing
+    public fun seed_musdc(
+        pool: &mut LendingPool,
+        musdc_coin: Coin<MUSDC>,
+    ) {
+        let amount = coin::value(&musdc_coin);
+        assert!(amount > 0, E_ZERO_AMOUNT);
+
+        let musdc_balance = coin::into_balance(musdc_coin);
+        balance::join(&mut pool.musdc_reserve, musdc_balance);
+    }
+
     // Borrow MUSDC against deposited MSUI (up to 80% LTV)
     public fun borrow(
         pool: &mut LendingPool,
